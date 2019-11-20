@@ -12,12 +12,15 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import static IV1212.common.Message.deserialize;
+import static IV1212.common.Message.serialize;
+
 public class ServerConnection implements Runnable {
 
-    private final ByteBuffer serverMessage = ByteBuffer.allocateDirect(8192);
+    private final ByteBuffer msgFromServer = ByteBuffer.allocateDirect(8192);
     private final LinkedBlockingQueue<Message> sendingQ = new LinkedBlockingQueue<>();
     private final LinkedBlockingQueue<Message> readingQ = new LinkedBlockingQueue<>();
-    private CommunicationListerner viewObserver;
+    private CommunicationListener viewObserver;
     private volatile boolean timeToSend = false;
     private InetSocketAddress serverAddress;
     private SocketChannel socketChannel;
@@ -45,13 +48,12 @@ public class ServerConnection implements Runnable {
         this.socketChannel.keyFor(selector).cancel();
     }
 
-    public void setViewObserver(CommunicationListerner observer) {
+    public void setViewObserver(CommunicationListener observer) {
         this.viewObserver = observer;
     }
 
     private void enqueueAndSendMessage(MessageType messageType, String body) {
         Message message = new Message(messageType, body);
-
         synchronized (sendingQ) {
             sendingQ.add(message);
         }
@@ -75,8 +77,8 @@ public class ServerConnection implements Runnable {
                 for (SelectionKey key : this.selector.selectedKeys()) {
 
                     if (!key.isValid()) continue;
-                    if (key.isConnectable()) establishConnection(key);
-                    else if (key.isReadable()) readFromServer(key);
+                    if (key.isConnectable()) completeConnection(key);
+                    else if (key.isReadable()) readFromServer();
                     else if (key.isWritable()) writeToServer(key);
 
                     selector.selectedKeys().remove(key);
@@ -87,28 +89,37 @@ public class ServerConnection implements Runnable {
         }
     }
 
-    private void writeToServer(SelectionKey key) {
+    private void writeToServer(SelectionKey key) throws IOException {
+        synchronized (sendingQ) {
+            while (sendingQ.size() > 0) {
+                ByteBuffer message = ByteBuffer.wrap(serialize(sendingQ.poll()).getBytes());
+                socketChannel.write(message);
+                if (message.hasRemaining()) return;
+            }
+        }
+        key.interestOps(SelectionKey.OP_READ);
     }
 
-    private void readFromServer(SelectionKey key) throws IOException {
-        serverMessage.clear();
-        int numOfReadBytes = socketChannel.read(serverMessage);
-        if (numOfReadBytes == -1) throw new IOException("CLient closed connection");
+    private void readFromServer() throws IOException {
+        msgFromServer.clear();
+        int numOfReadBytes = socketChannel.read(msgFromServer);
+        if (numOfReadBytes == -1) throw new IOException("Client closed connection");
 
-        readingQ.add(Message.deserialize(extractMessageFromBuffer()));
+        readingQ.add(deserialize(extractMessageFromBuffer()));
 
         while (readingQ.size() > 0) {
             Message message = readingQ.poll();
+            
 
             switch (message.getMessageType()){
                 case START_RESPONSE:
-                    viewObserver.print("some message");
+                    viewObserver.print("You started a new game!\nYou can guess a letter or the word\nYou have to guess:"+ message.getBody());
                     break;
                 case GUESS_RESPONSE:
-                    viewObserver.print("message");
+                    viewObserver.print(message.getBody());
                     break;
                 case END_RESPONSE:
-                    viewObserver.print("mesasge");
+                    viewObserver.print("\" The game is ended! Here is the result:" + message.getBody() + "\nStart a new game with 'start'");
                     break;
 
                 default:
@@ -119,12 +130,15 @@ public class ServerConnection implements Runnable {
     }
 
     private String extractMessageFromBuffer() {
-
+        msgFromServer.flip();
+        byte[] bytes = new byte[msgFromServer.remaining()];
+        msgFromServer.get(bytes);
+        return new String(bytes);
     }
 
-    private void establishConnection(SelectionKey key) throws IOException {
+    private void completeConnection(SelectionKey key) throws IOException {
         this.socketChannel.finishConnect();
-        viewObserver.print("message");
+        viewObserver.print("Connection successful!\n" + "You can start a new game with 'start'");
         key.interestOps(SelectionKey.OP_WRITE);
     }
 
@@ -132,8 +146,8 @@ public class ServerConnection implements Runnable {
         this.selector = SelectorProvider.provider().openSelector();
 
         this.socketChannel = SocketChannel.open();
-        this.socketChannel = configureBlocking(false);
-        this.socketChannel = connect(serverAddress);
+        this.socketChannel.configureBlocking(false);
+        this.socketChannel.connect(serverAddress);
         this.socketChannel.register(selector, SelectionKey.OP_CONNECT);
         this.connected = true;
     }

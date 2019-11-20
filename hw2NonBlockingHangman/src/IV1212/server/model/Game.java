@@ -3,7 +3,7 @@ package IV1212.server.model;
 public class Game {
     private WordSelector wordSelector;
     private String chosenWord;
-    private  String currentState;
+    private  String hiddenWord;
     private int score;
     private int remainingAttempts;
 
@@ -14,8 +14,9 @@ public class Game {
 
     public String startRound() {
         chosenWord = chooseWord();
+        System.out.println(chosenWord);
         remainingAttempts = chosenWord.length();
-        currentState = chosenWord.replaceAll("[a-zA-Z]", "_");
+        hiddenWord = chosenWord.replaceAll("[a-zA-Z]", "_");
 
         return buildMessage();
     }
@@ -34,19 +35,22 @@ public class Game {
     }
 
     private String buildMessage() {
-        return "You have to guess: " + prettifyCurrentState() + " - [remaining attempts: "
+        return prettifyHiddenWord() + " - [remaining attempts: "
                 + remainingAttempts + "; score: " + score + "]";
     }
 
-    private String prettifyCurrentState() {
-        return currentState.replace(""," ").trim();
+    private String prettifyHiddenWord() {
+        return hiddenWord.replace(""," ").trim();
     }
 
     private void validateWord(String word) {
         if (word.toUpperCase().equals(chosenWord)) {
             score++;
-            currentState = word.toUpperCase();
+            hiddenWord = word.toUpperCase();
             chosenWord = null;
+            return;
+        }else{
+            remainingAttempts--;
             return;
         }
     }
@@ -57,7 +61,7 @@ public class Game {
         if (!chosenWord.contains(letter)) {
             if (remainingAttempts <= 1) {
                 if (score > 0) score--;
-                currentState = chosenWord;
+                hiddenWord = chosenWord;
                 chosenWord = null;
                 return;
             }
@@ -66,7 +70,7 @@ public class Game {
         }
 
         char[] chosenCharArray = chosenWord.toCharArray();
-        char[] currentCharArray = currentState.toCharArray();
+        char[] currentCharArray = hiddenWord.toCharArray();
         char letterChar = letter.charAt(0);
 
         for (int i = 0; i < chosenCharArray.length; i++) {
@@ -74,8 +78,11 @@ public class Game {
                 currentCharArray[i] = letterChar;
             }
         }
+        hiddenWord = String.valueOf(currentCharArray);
 
-        currentState = String.valueOf(currentCharArray);
+        if (hiddenWord.equals(chosenWord)){
+            validateWord(hiddenWord);
+        }
     }
 
     public String getChosenWord() {

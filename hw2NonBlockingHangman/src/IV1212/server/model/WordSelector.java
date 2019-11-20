@@ -18,7 +18,7 @@ public class WordSelector {
 
     private void loadFile() {
         try {
-            BufferedReader reader = Files.newBufferedReader(Paths.get("./assets/words.txt"));
+            BufferedReader reader = Files.newBufferedReader(Paths.get("C:\\Users\\nicla\\Desktop\\hw2NonBlockingHangman\\src\\IV1212\\assets\\words.txt"));
             String line = reader.readLine();
 
             while (line != null) {
