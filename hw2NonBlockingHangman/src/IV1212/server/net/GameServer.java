@@ -75,7 +75,7 @@ public class GameServer {
         }
     }
 
-    private void removeClient(SelectionKey key) throws IOException {
+    private void removeClient(SelectionKey key) {
         ClientHandler clientHandler = (ClientHandler) key.attachment();
         clientHandler.disconnectClient();
         key.cancel();

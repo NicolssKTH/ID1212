@@ -35,12 +35,7 @@ public class Game {
     }
 
     private String buildMessage() {
-        return prettifyHiddenWord() + " - [remaining attempts: "
-                + remainingAttempts + "; score: " + score + "]";
-    }
-
-    private String prettifyHiddenWord() {
-        return hiddenWord.replace(""," ").trim();
+        return hiddenWord + " " + remainingAttempts + " " + score;
     }
 
     private void validateWord(String word) {

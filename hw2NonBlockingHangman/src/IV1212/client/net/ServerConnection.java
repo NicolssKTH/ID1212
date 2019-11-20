@@ -10,6 +10,8 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
+import java.util.ArrayList;
+import java.util.StringTokenizer;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import static IV1212.common.Message.deserialize;
@@ -109,17 +111,18 @@ public class ServerConnection implements Runnable {
 
         while (readingQ.size() > 0) {
             Message message = readingQ.poll();
-            
 
             switch (message.getMessageType()){
                 case START_RESPONSE:
-                    viewObserver.print("You started a new game!\nYou can guess a letter or the word\nYou have to guess:"+ message.getBody());
+                    viewObserver.print("You started a new game!\nYou can guess a letter or the word\n" +
+                            "You have to guess:"+ prettifyGameState(message.getBody()));
                     break;
                 case GUESS_RESPONSE:
-                    viewObserver.print(message.getBody());
+                    viewObserver.print(prettifyGameState(message.getBody()));
                     break;
                 case END_RESPONSE:
-                    viewObserver.print("\" The game is ended! Here is the result:" + message.getBody() + "\nStart a new game with 'start'");
+                    viewObserver.print("\" The game is ended! Here is the result:" +
+                            prettifyGameState(message.getBody()) + "\nStart a new game with 'start'");
                     break;
 
                 default:
@@ -150,6 +153,13 @@ public class ServerConnection implements Runnable {
         this.socketChannel.connect(serverAddress);
         this.socketChannel.register(selector, SelectionKey.OP_CONNECT);
         this.connected = true;
+    }
+
+    private String prettifyGameState(String gameState){
+        StringTokenizer body = new StringTokenizer(gameState);
+        return body.nextToken().replace("", " ").trim() +
+                " - [remaining attempts: " + body.nextToken() +
+                "; score: " + body.nextToken();
     }
 
 }
